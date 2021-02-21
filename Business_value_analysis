@@ -1,0 +1,120 @@
+-------Location and Business Value Analysis-----
+create view active_regn_view as
+select *
+from (
+select distinct region_name, active_yn, count (active_yn) over (partition by region_name order by active_yn ) as active_regn
+from (
+select regn.region_name, inst.active_yn
+from fd_region regn
+inner join fd_location loc
+on regn.region_id = loc.region_id
+inner join fd_institution inst
+on loc.institution_id=inst.institution_id ))
+select * from active_regn_view
+--------Most Institutions Are Not Active------
+create view active_pct_view as
+select *
+from (
+select distinct active_yn, categorized_quantity/ttl_id as active_pct
+from (
+select count(institution_id) over(partition by active_yn) as categorized_quantity , count(institution_id) over () as ttl_id, active_yn
+from fd_institution
+)
+)
+select * from active_pct_view
+------Active Bkclass------
+20
+ create or replace view bkclass_active_view as
+select *
+from (
+select distinct bkclass_name,
+decode (active_yn,'Y','Active','Inactive'),
+count(active_yn)
+from (
+select bk.bkclass_name, inst.active_yn
+from fd_bkclass bk
+inner join fd_institution inst
+on bk.bkclass_id=inst.bkclass_id)
+group by bkclass_name,decode (active_yn,'Y','Active','Inactive') )
+select * from bkclass_active_view
+-------Sum of Asset Percentage with Different Bank Classifications-----
+create view pct_sum_view as
+select *
+from (
+select distinct bkclass_name, pct_sum/ttl as pct_sum
+from (
+select distinct bkclass_name,
+sum_of_asset/count(bkclass_name) over (partition by bkclass_name) pct_sum, sum(sum_of_asset) over ( ) ttl
+from (
+select distinct bkclass_name, sum(asset_quantity) over (partition by bkclass_name) as sum_of_asset
+from (
+select bk.bkclass_name, insti.asset_quantity
+from fd_bkclass bk
+inner join fd_institution insti
+on bk.bkclass_id=insti.bkclass_id
+where asset_quantity is not null
+))
+)
+order by pct_sum desc)
+select * from pct_sum_view
+-------Institutions By Region and Regulator------
+create view region_regulator_view
+21
+ 
+ as
+select *
+from (
+select distinct regulator_name, region_name, count(institution_id) from (
+select reg.regulator_name,inst.institution_id,region.region_name from fd_regulator reg
+inner join fd_institution inst
+on reg.regulator_id = inst.regulator_id
+inner join fd_location loc
+on loc.institution_id = inst.institution_id
+inner join fd_region region
+on region.region_id = loc.region_id)
+group by regulator_name, region_name)
+select * from region_regulator_view
+-------FDIC Registration History------
+select * from sc_fd_regulator_view
+create or replace view sc_fd_regulator_view
+as
+select regulator_name as REGULATOR, count(institution_id) as regulated_institutions from fd_institution
+join fd_regulator using (regulator_id)
+where active_yn = 'Y'
+group by regulator_name
+order by count(institution_id) desc
+--------Top Asset Registration------
+WITH top_asset AS ( SELECT
+name as institution,
+TO_CHAR(dateupdt, 'YYYY') as register_date, asset,
+ROUND(CUME_DIST() OVER (
+PARTITION BY TO_CHAR(dateupdt, 'YYYY') ORDER BY asset DESC
+),2) cume_dist
+FROM
+sc_fd_stage
+WHERE
+TO_CHAR(dateupdt, 'YYYY') = 2000
+SELECT * FROM top_asset
+22
+ 
+WHERE
+cume_dist <= 0.30
+and asset is not null;
+---------Number of Institutions Governed by Regulating Agents--------
+create view count_institution_byregulator_view as
+select *
+from (
+select count(institution_id), regulator_name
+from (
+select reg.regulator_name,reg.regulator_id,inst.institution_id from fd_regulator reg inner join fd_institution inst
+on reg.regulator_id=inst.regulator_id)
+group by regulator_name)
+--------- Total Assets Regulated by Agent------
+create view asset_quantity_view as
+select *
+from (
+select round(sum(asset_quantity),-6) as sum_quantity, regulator_name from (
+select reg.regulator_name,inst.asset_quantity,inst.institution_id
+from fd_regulator reg inner join fd_institution inst
+on reg.regulator_id=inst.regulator_id) group by regulator_name)
+select * from asset_quantity_view
