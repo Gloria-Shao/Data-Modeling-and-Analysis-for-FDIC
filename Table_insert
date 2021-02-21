@@ -1,0 +1,197 @@
+---------------- inserting data ----------------
+insert into FD_LOCATION (location_id, street_name, state_id, zip)
+select (select location_id from FD_LOCATION), ADDRESS, STNUM, ZIP from FD_STAGE;
+
+
+(select  
+ADDRESS, STNUM, ZIP
+from
+(select ADDRESS, STNUM, ZIP from FD_STAGE))
+
+(select city_id from FD_CITY a where a.city_name = b.city_name),CITY
+
+create sequence FD_LOCATION   ------start from 1, increment by 1
+start at 1
+increment by 10 
+
+-----------------------
+select rownum id,stname
+from (
+select distinct stname
+from fd_stage
+where stname is not null
+order by 1)
+
+---------------------- create state -------------------
+create sequence seq_fd_state
+
+insert into fd_state (state_id, state_name, state_code)
+select seq_fd_state.nextval id, stname, stalp
+from (
+select distinct stname, stalp from fd_stage
+where stname is not null 
+order by 1 )
+
+select * from fd_state
+select * from fd_stage
+------------------- create county ------------------
+create sequence seq_fd_county
+
+insert into fd_county (county_id, county_name)
+select seq_fd_county.nextval id, county
+from (
+select distinct county from fd_stage
+where county is not null
+order by 1)
+
+select * from fd_county
+
+
+------------------ create city ------------------
+create sequence seq_fd_city
+
+insert into fd_city (city_id, city_name)
+select seq_fd_city.nextval id, city
+from (
+select distinct city from fd_stage
+where city is not null
+order by 1)
+
+select * from fd_city
+
+------------------- region ---------------------
+create sequence seq_fd_region 
+
+insert into fd_region (region_id, region_name)
+select seq_fd_region.nextval id, fdicregn
+from(
+select distinct fdicregn from fd_stage
+where fdicregn is not null
+order by 1)
+
+select * from fd_region
+
+------------------ country -----------------
+create sequence seq_fd_country
+
+
+insert into fd_country (country_id, country_name)
+values (seq_fd_country.nextval, 'USA')
+
+select * from fd_country
+
+------------------ BKCLASS ----------------
+create sequence seq_fd_bkclass
+
+insert into fd_bkclass (bkclass_id, bkclass_name)
+select seq_fd_bkclass.nextval id, bkclass
+from (
+select distinct bkclass from fd_stage
+where bkclass is not null
+order by 1)
+
+select * from fd_bkclass
+
+------------------ REGULATOR -------------------
+create sequence seq_fd_regulator
+
+insert into fd_regulator (regulator_id, regulator_name)
+select seq_fd_regulator.nextval id, regagnt
+from (
+select distinct regagnt from fd_stage
+where regagnt is not null
+order by 1)
+
+select * from fd_regulator
+
+---------------- certification ----------------
+create sequence seq_fd_certification
+
+insert into fd_certification (cert_id, cert_number)
+select seq_fd_certification.nextval id, cert
+from (
+select distinct cert from fd_stage
+where cert is not null
+order by 1)
+
+select * from fd_certification
+------------------------------------------------
+select * from fd_state
+
+
+------------------ institution ------------------
+create sequence seq_fd_institution
+
+create sequence seq_fd_location
+
+insert into fd_institution (institution_id, institution_name, asset_quantity, active_yn, bkclass_id, cert_id, regulator_id)
+select seq_fd_institution.nextval, 
+name, 
+asset, 
+active_yn, 
+(select bkclass_id from fd_bkclass where name = bkclass) bkclass_id,
+(select cert_id from fd_certification where name = cert) cert_id, 
+(select regulator_id from fd_regulator where name = regagnt) regulator_id
+from (
+select distinct name, asset, decode(active,1,'Y','N') active_yn, bkclass, cert, regagnt from fd_stage
+where name is not null
+order by 1);
+
+select * from fd_bkclass
+
+select * from fd_institution
+
+
+------------------------------ FD_INSTITUTION -------------------------
+insert into fd_institution (institution_id, institution_name, asset_quantity, active_yn, bkclass_id, cert_id, regulator_id)
+select seq_fd_institution.nextval, 
+name, 
+asset, 
+active_yn, 
+(select bkclass_id from fd_bkclass where bkclass_name = bkclass) bkclass_id,
+(select cert_id from fd_certification where cert_number = cert) cert_id, 
+(select regulator_id from fd_regulator where regulator_name = regagnt) regulator_id
+from (
+select distinct name, asset, decode(active,1,'Y','N') active_yn, bkclass, cert, regagnt from fd_stage
+);
+
+select count(*)from fd_institution
+
+
+------------------------------- FD_LOCATION ------------------------------
+create sequence seq_fd_location2
+select * from fd_stage
+
+
+insert into fd_location(location_id, street_name, zip, city_id, state_id, county_id, region_id, institution_id)
+select seq_fd_location2.nextval, 
+address, 
+zip,
+(select city_id from fd_city where city_name = city) city_id,
+(select state_id from fd_state where state_name = stname) state_id,
+(select county_id from fd_county where county_name = county) county_id,
+(select region_id from fd_region where region_name = fdicregn) region_id,
+(select institution_id from fd_institution glo
+where glo.institution_name = data.name
+and glo.asset_quantity = data.asset
+and glo.active_yn = data.active_yn
+and glo.bkclass_id = (select bkclass_id from fd_bkclass where bkclass_name = bkclass)
+and glo.cert_id = (select cert_id from fd_certification where cert_number = cert)
+and glo.regulator_id = (select regulator_id from fd_regulator where regulator_name = regagnt)) institution_id
+from(
+select distinct address, zip, city, stname, county, fdicregn, name, asset, decode(active,1,'Y','N') active_yn, bkclass, cert, regagnt
+from 
+fd_stage
+)data;
+
+
+select * from fd_location
+
+select institution_id from fd_institution glo
+where glo.institution_name = data.name
+and glo.asset_quantity = data.asset
+and glo.active_yn = data.active_yn
+and glo.bkclass_id = (select bkclass_id from fd_bkclass where bkclass_name = bkclass)
+and glo.cert_id = (select cert_id from fd_certification where cert_number = cert)
+and glo.regulator_id = (select regulator_id from fd_regulator where regulator_name = regagnt)
+
